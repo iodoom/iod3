@@ -223,62 +223,7 @@ Session_PromptKey_f
 static void Session_PromptKey_f( const idCmdArgs &args ) {
 	const char	*retkey;
 	bool		valid[ 2 ];
-	static bool recursed = false;
-
-	if ( recursed ) {
-		common->Warning( "promptKey recursed - aborted" );
-		return;
-	}
-	recursed = true;
-
-	do {
-		// in case we're already waiting for an auth to come back to us ( may happen exceptionally )
-		if ( sessLocal.MaybeWaitOnCDKey() ) {
-			if ( sessLocal.CDKeysAreValid( true ) ) {
-				recursed = false;
-				return;
-			}
-		}
-		// the auth server may have replied and set an error message, otherwise use a default
-		const char *prompt_msg = sessLocal.GetAuthMsg();
-		if ( prompt_msg[ 0 ] == '\0' ) {
-			prompt_msg = common->GetLanguageDict()->GetString( "#str_04308" );
-		}
-		retkey = sessLocal.MessageBox( MSG_CDKEY, prompt_msg, common->GetLanguageDict()->GetString( "#str_04305" ), true, NULL, NULL, true );
-		if ( retkey ) {
-			if ( sessLocal.CheckKey( retkey, false, valid ) ) {
-				// if all went right, then we may have sent an auth request to the master ( unless the prompt is used during a net connect )
-				bool canExit = true;
-				if ( sessLocal.MaybeWaitOnCDKey() ) {
-					// wait on auth reply, and got denied, prompt again
-					if ( !sessLocal.CDKeysAreValid( true ) ) {
-						// server says key is invalid - MaybeWaitOnCDKey was interrupted by a CDKeysAuthReply call, which has set the right error message
-						// the invalid keys have also been cleared in the process
-						sessLocal.MessageBox( MSG_OK, sessLocal.GetAuthMsg(), common->GetLanguageDict()->GetString( "#str_04310" ), true, NULL, NULL, true );
-						canExit = false;
-					}
-				}
-				if ( canExit ) {
-					// make sure that's saved on file
-					sessLocal.WriteCDKey();
-					sessLocal.MessageBox( MSG_OK, common->GetLanguageDict()->GetString( "#str_04307" ), common->GetLanguageDict()->GetString( "#str_04305" ), true, NULL, NULL, true );
-					break;
-				}
-			} else {
-				// offline check sees key invalid
-				// build a message about keys being wrong. do not attempt to change the current key state though
-				// ( the keys may be valid, but user would have clicked on the dialog anyway, that kind of thing )
-				idStr msg;
-				idAsyncNetwork::BuildInvalidKeyMsg( msg, valid );
-				sessLocal.MessageBox( MSG_OK, msg, common->GetLanguageDict()->GetString( "#str_04310" ), true, NULL, NULL, true );
-			}
-		} else if ( args.Argc() == 2 && idStr::Icmp( args.Argv(1), "force" ) == 0 ) {
-			// cancelled in force mode
-			cmdSystem->BufferCommandText( CMD_EXEC_APPEND, "quit\n" );
-			cmdSystem->ExecuteCommandBuffer();
-		}
-	} while ( retkey );
-	recursed = false;
+	static bool recursed = true;
 }
 
 /*
